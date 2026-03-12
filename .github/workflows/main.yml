@@ -1,0 +1,41 @@
+name: Upstream Sync
+
+on:
+  schedule:
+    # 定时任务，使用 cron 表达式。这里是每天北京时间 8:00 运行（UTC 时间 0:00）
+    - cron: '0 0 * * *'
+  # 允许你手动触发工作流，方便测试
+  workflow_dispatch:
+
+jobs:
+  sync_with_upstream:
+    name: Sync with Upstream
+    runs-on: ubuntu-latest
+    # 这个检查确保只在 fork 的仓库中运行，避免误操作
+    if: ${{ github.event.repository.fork }}
+
+    steps:
+      # 第一步：拉取你 fork 的仓库代码
+      - name: Checkout target repo
+        uses: actions/checkout@v3
+
+      # 第二步：核心步骤，使用第三方 Action 进行同步
+      - name: Sync Upstream
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
+        with:
+          # 使用 GitHub 自动提供的 token，用于推送代码到你自己的仓库
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          # 【重要】请替换为你要同步的 原仓库的作者/仓库名
+          upstream_sync_repo: ZhuLinsen/daily_stock_analysis
+          # 【重要】原仓库的分支，通常是 main 或 master
+          upstream_sync_branch: main
+          # 【重要】你自己的 fork 仓库想要更新的目标分支
+          target_sync_branch: main
+
+      # 第三步：检查失败原因（例如，如果上游仓库的工作流文件变更导致自动更新暂停）
+      - name: Check for Failure
+        if: failure()
+        run: |
+          echo "[Error] 由于上游仓库的工作流文件发生变更，GitHub 可能自动暂停了定时更新。"
+          echo "你需要手动检查并解决冲突，或者重新启用这个工作流。"
+          exit 1
